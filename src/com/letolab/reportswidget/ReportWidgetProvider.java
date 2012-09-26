@@ -13,8 +13,11 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HeaderElement;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.ParseException;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
@@ -36,8 +39,9 @@ import android.util.Log;
 import android.widget.RemoteViews;
 
 public class ReportWidgetProvider extends AppWidgetProvider {
-	private static String key = "iM7NSisGte1Wfmp8Is1MUKRUpGkhSVDqazwJ8o88";
-	private static String SERVER_URL = "http://www.worksnaps.net/api/me.xml";
+	//private static String key = "aU03TlNpc0d0ZTFXZm1wOElzMU1VS1JVcEdraFNWRHFhendKOG84ODo
+	private static String key = "aU03TlNpc0d0ZTFXZm1wOElzMU1VS1JVcEdraFNWRHFhendKOG84ODo=";
+	private static String SERVER_URL = "http://www.worksnaps.net/api//projects/3818/reports?name=time_summary&from_timestamp=1348617600&user_ids=2285&to_timestamp=1351209600&time_entry_type=online";
 
 
 
@@ -111,14 +115,15 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 			
 			HttpClient httpclient = new DefaultHttpClient();
 			HttpGet httpget = null;
+			
 			httpget = new HttpGet(SERVER_URL);
-
+			httpget.addHeader("Authorization", "Basic "+key);
 			try {
 
 				HttpResponse httpresponse = httpclient.execute(httpget);
 				HttpEntity resEntity = httpresponse.getEntity();
-				response = EntityUtils.toString(resEntity);
-				Log.e("REPORTS", response);
+				response = IOUtils.toString(resEntity.getContent());
+				Log.e("REPORTS", " "+httpresponse.getStatusLine().getStatusCode());
 			} catch (ClientProtocolException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
@@ -132,7 +137,7 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 			System.out.println("Progress update: " + progress);
 		}
 
-		protected void onPostExecute(String result) {
+		protected void onPostExecute(HashMap<String,String> result) {
 			//print result
 			System.out.println("Network Call Complete\n" + result);
 
