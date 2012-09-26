@@ -1,23 +1,20 @@
 package com.letolab.reportswidget;
 
-import android.appwidget.AppWidgetManager;
-import android.appwidget.AppWidgetProvider;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
+import android.os.Bundle;
+import android.app.Activity;
+import android.view.Menu;
 
-public class MainActivity extends AppWidgetProvider {
-	public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
+public class MainActivity extends Activity {
+	public static int userID;
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.mainactivity);
+    }
 
-		final int N = appWidgetIds.length;
-		ComponentName thisWidget = new ComponentName(context,MainActivity.class);
-		int[] allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
-
-		// Build the intent to call the service
-		Intent intent = new Intent(context.getApplicationContext(),UpdateWidgetService.class);
-		intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, allWidgetIds);
-
-		// Update the widgets via the service
-		context.startService(intent);
-	}
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.mainactivity, menu);
+        return true;
+    }
 }
