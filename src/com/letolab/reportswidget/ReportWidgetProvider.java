@@ -139,7 +139,7 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 
 		protected void onPostExecute(HashMap<String,String> result) {
 			//print result
-			System.out.println("Network Call Complete\n" + result);
+			System.out.println("Network Call Complete\n" + result.get("duration_in_minutes"));
 
 		}
 	}
