@@ -2,6 +2,7 @@ package com.letolab.reportswidget;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -37,12 +38,12 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.os.AsyncTask;
+import android.util.Base64;
 import android.util.Log;
 import android.widget.RemoteViews;
 
 public class ReportWidgetProvider extends AppWidgetProvider {
-	//private static String key = "aU03TlNpc0d0ZTFXZm1wOElzMU1VS1JVcEdraFNWRHFhendKOG84ODo
-	private static String key = "aU03TlNpc0d0ZTFXZm1wOElzMU1VS1JVcEdraFNWRHFhendKOG84ODo=";
+	private static String key = "iM7NSisGte1Wfmp8Is1MUKRUpGkhSVDqazwJ8o88";
 	private static String SERVER_URL = "http://www.worksnaps.net/api/";
 	public enum TimeSpan {TODAY, YESTERDAY, THIS_WEEK, LAST_WEEK, THIS_MONTH, LAST_MONTH}
 	public TimeSpan span = TimeSpan.TODAY;
@@ -51,10 +52,12 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 	public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
 		RemoteViews remoteViews;
 		ComponentName watchWidget;
-
+		HashMap<String, Object> args = new HashMap<String, Object>();
+		args.put("key", toBase64(key, ""));
+		args.put("urls", formUrls());
 		APICall task = new APICall();
 		try {
-			task.execute(key).get();
+			task.execute(args).get();
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -63,11 +66,9 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 			e.printStackTrace();
 		}
 
-		DateFormat format = SimpleDateFormat.getTimeInstance( SimpleDateFormat.MEDIUM, Locale.getDefault() );
-
 		remoteViews = new RemoteViews( context.getPackageName(), R.layout.widget_layout );
 		watchWidget = new ComponentName( context, ReportWidgetProvider.class );
-		remoteViews.setTextViewText( R.id.label, "Time = " + format.format( new Date()));
+		remoteViews.setTextViewText( R.id.label, "LABEL");
 		appWidgetManager.updateAppWidget( watchWidget, remoteViews );
 	}
 	public ArrayList<String> formUrls(){
@@ -77,14 +78,14 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		String start = getStartTime();
 		String end = getEndTime();
 
-
 		for(String projectCode: projects){
 			String ret = SERVER_URL;
 
-			ret = ret + "/projects/"+projectCode+"/";
+			ret = ret + "projects/"+projectCode+"/";
 			ret = ret + "reports?name=time_summary&from_timestamp="+start;
 			ret = ret + "&user_ids="+user_id;
 			ret = ret + "&to_timestamp="+end+"&time_entry_type=online";
+			urls.add(ret);
 		}
 
 		return urls;
@@ -94,7 +95,7 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		/*
 		 * TODO: make api call to get list of projects
 		 */
-		rets.add("3813"); //3813 is SOA
+		rets.add("3818"); //3813 is SOA
 		return rets;
 	}
 	private String getStartTime(){
@@ -102,7 +103,7 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		long millis = 0;
 		switch(span){
 			case TODAY:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DATE), 0, 0, 1);
 				break;
 	
 			case YESTERDAY:
@@ -126,13 +127,47 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 				break;
 
 		}
-		millis = c.getTimeInMillis();
+		Log.w("DATE","Start: " + c.getTime().toString());
+		millis = c.getTimeInMillis()/1000;
 		return String.valueOf(millis);
 	}
 	private String getEndTime(){
-		return "1351209600";
+		Calendar c = Calendar.getInstance();
+		long millis = 0;
+		switch(span){
+			case TODAY:
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DATE),  23, 59, 59);
+				break;
+	
+			case YESTERDAY:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE-1, 23, 59, 59);
+				break;
+	
+			case THIS_WEEK:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 23, 59, 59);
+				break;
+	
+			case LAST_WEEK:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 23, 59, 59);
+				break;
+	
+			case THIS_MONTH:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 23, 59, 59);
+				break;
+	
+			case LAST_MONTH:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 23, 59, 59);
+				break;
+
+		}
+		Log.w("DATE","End: " + c.getTime().toString());
+		millis = c.getTimeInMillis()/1000;
+		return String.valueOf(millis);
 	}
 	private String getUserID(){
+		/*
+		 * TODO: get user id from api call for me.xml
+		 */
 		return "2285";
 	}
 	public static String makeXMLObject(HashMap<String, String> dict){
@@ -170,41 +205,64 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 
 		return dict;
 	}
+	private String toBase64(String username, String password){
+		String pre = username+":"+password;
+		byte[] data = null;
+	    try {
+	        data = pre.getBytes("UTF-8");
+	    } catch (UnsupportedEncodingException e1) {
+	    e1.printStackTrace();
+	    }
+	    String base64 = Base64.encodeToString(data, Base64.DEFAULT);
 
-	static class APICall extends AsyncTask<String, Integer, HashMap<String,String>> {
+	    // Receiving side
+	    byte[] data1 = Base64.decode(base64, Base64.DEFAULT);
+	    String text1 = null;
+	    try {
+	        text1 = new String(data1, "UTF-8");
+	    } catch (UnsupportedEncodingException e) {
+	        e.printStackTrace();
+	    }
+		return text1;
+		
+	}
+	static class APICall extends AsyncTask<HashMap<String, Object>, Integer, String> {
 
 		@Override
-		protected HashMap<String,String> doInBackground(String... content) {
+		protected String doInBackground(HashMap<String, Object>... content) {
 			String response = "";
-
+			String key = (String) content[0].get("key");
+			ArrayList<String> urls = (ArrayList<String>) content[0].get("urls");
 
 			HttpClient httpclient = new DefaultHttpClient();
 			HttpGet httpget = null;
+			ArrayList<String> responses = new ArrayList<String>();
+			for(String url:urls){
+				Log.w("APICALL", url);
+				httpget = new HttpGet(url);
+				httpget.addHeader("Authorization", "Basic "+key);
+				try {
 
-			httpget = new HttpGet(SERVER_URL);
-			httpget.addHeader("Authorization", "Basic "+key);
-			try {
-
-				HttpResponse httpresponse = httpclient.execute(httpget);
-				HttpEntity resEntity = httpresponse.getEntity();
-				response = IOUtils.toString(resEntity.getContent());
-				Log.e("REPORTS", " "+httpresponse.getStatusLine().getStatusCode());
-			} catch (ClientProtocolException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
+					HttpResponse httpresponse = httpclient.execute(httpget);
+					HttpEntity resEntity = httpresponse.getEntity();
+					responses.add(IOUtils.toString(resEntity.getContent()));
+					Log.e("REPORTS", " "+httpresponse.getStatusLine().getStatusCode());
+				} catch (ClientProtocolException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
-
-			return parseXMLResponse(response);
+			return responses.get(0);
 		}  
 		protected void onProgressUpdate(Integer... progress) {
 			//setProgressPercent(progress[0]);
-			System.out.println("Progress update: " + progress);
+			Log.w("APICALL","Progress update: " + progress);
 		}
 
-		protected void onPostExecute(HashMap<String,String> result) {
+		protected void onPostExecute(String result) {
 			//print result
-			System.out.println("Network Call Complete\n" + result.get("duration_in_minutes"));
+			Log.w("APICALL","Network Call Complete\n" + result);
 
 		}
 	}
