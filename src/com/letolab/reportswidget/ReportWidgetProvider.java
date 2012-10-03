@@ -30,7 +30,10 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
+import org.w3c.dom.DOMImplementation;
 import org.w3c.dom.Document;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
@@ -53,12 +56,27 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 	public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
 		RemoteViews remoteViews;
 		ComponentName watchWidget;
+		int minutes = getMinutesTotal();
+		int hours = minutes / 60;
+		minutes = minutes % 60;
+		
+		
+		remoteViews = new RemoteViews( context.getPackageName(), R.layout.widget_layout );
+		watchWidget = new ComponentName( context, ReportWidgetProvider.class );
+		remoteViews.setTextViewText( R.id.label, hours+ ":"+minutes);
+		appWidgetManager.updateAppWidget( watchWidget, remoteViews );
+	}
+	
+	
+	
+	private int getMinutesTotal(){
 		HashMap<String, Object> args = new HashMap<String, Object>();
 		args.put("key", toBase64(key, ""));
 		args.put("urls", formUrls());
 		APICall task = new APICall();
+		ArrayList<String> responses = null;
 		try {
-			task.execute(args).get();
+			responses = task.execute(args).get();
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -66,12 +84,18 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
-		remoteViews = new RemoteViews( context.getPackageName(), R.layout.widget_layout );
-		watchWidget = new ComponentName( context, ReportWidgetProvider.class );
-		remoteViews.setTextViewText( R.id.label, "LABEL");
-		appWidgetManager.updateAppWidget( watchWidget, remoteViews );
+		int minutes = 0;
+		for(String s:responses){
+			String formatted = formatResponseString(s);
+			XMLHashMap<String, String> dict = (XMLHashMap<String, String>)parseXMLResponse(formatted);
+			minutes += Integer.parseInt(dict.get("duration_in_minutes"));
+		}
+		return minutes;
 	}
+	
+	
+	
+	
 	public ArrayList<String> formUrls(){
 		ArrayList<String> urls = new ArrayList<String>();
 		ArrayList<String> projects = getProjectCodes();
@@ -92,6 +116,25 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		return urls;
 	}
 	private ArrayList<String> getProjectCodes(){
+		HashMap<String, Object> args = new HashMap<String, Object>();
+		args.put("key", toBase64(key, ""));
+		args.put("urls", formUrls());
+		APICall task = new APICall();
+		ArrayList<String> responses = null;
+		try {
+			responses = task.execute(args).get();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		for(String s:responses){
+			String formatted = formatResponseString(s);
+			XMLHashMap<String, String> dict = (XMLHashMap<String, String>)parseXMLResponse(formatted);
+			minutes += Integer.parseInt(dict.get("duration_in_minutes"));
+		}
 		ArrayList<String> rets = new ArrayList<String>();
 		/*
 		 * TODO: make api call to get list of projects
@@ -212,12 +255,20 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		return ret;
 		
 	}
-	static class APICall extends AsyncTask<HashMap<String, Object>, Integer, String> {
+	private String formatResponseString(String result){
+		result = result.replace("<?xml version=\"1.0\"?>", "");
+		
+		//because the api returns 2 xml elements we need to wrap in a single root element
+		result =  "<xml>"+result+"</xml>";
+		return result;
+	}
+	static class APICall extends AsyncTask<HashMap<String, Object>, Integer, ArrayList<String>> {
 
 		@Override
-		protected String doInBackground(HashMap<String, Object>... content) {
-			String response = "";
+		protected ArrayList<String> doInBackground(HashMap<String, Object>... content) {
+			boolean debugNetworkCall = false;
 			String key = (String) content[0].get("key");
+			@SuppressWarnings("unchecked") //we definitely know what this class is
 			ArrayList<String> urls = (ArrayList<String>) content[0].get("urls");
 
 			HttpClient httpclient = new DefaultHttpClient();
@@ -227,24 +278,30 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 				Log.w("APICALL", url);
 				httpget = new HttpGet(url);
 				httpget.addHeader("Authorization", key);
-//				httpget.addHeader("Host","www.worksnaps.net");
-				Log.i("APICALL", "request");
-				printHeaders(httpget.getAllHeaders());
+				
+				if (debugNetworkCall) {
+					Log.i("APICALL", "request");
+					printHeaders(httpget.getAllHeaders());
+				}
 				try {
 
 					HttpResponse httpresponse = httpclient.execute(httpget);
 					HttpEntity resEntity = httpresponse.getEntity();
-					Log.i("APICALL", "response");
-					printHeaders(httpresponse.getAllHeaders());
 					responses.add(IOUtils.toString(resEntity.getContent()));
-					Log.e("REPORTS", " "+httpresponse.getStatusLine().getStatusCode());
+					
+					if (debugNetworkCall) {
+						Log.i("APICALL", "response");
+						printHeaders(httpresponse.getAllHeaders());
+						Log.e("REPORTS", " "+ httpresponse.getStatusLine().getStatusCode());
+					}
+					
 				} catch (ClientProtocolException e) {
 					e.printStackTrace();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			}
-			return responses.get(0);
+			return responses;
 		}  
 		protected void onProgressUpdate(Integer... progress) {
 			//setProgressPercent(progress[0]);
@@ -253,7 +310,10 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 
 		protected void onPostExecute(String result) {
 			//print result
-			Log.w("APICALL","Network Call Complete\n" + result);
+//			
+//			Log.i("APICALL",result);
+//			String mins = parseXMLResponse(result).get("duration_in_minutes");
+//			Log.w("APICALL","Network Call Complete\n" + mins);
 
 		}
 		private void printHeaders(Header[] headers){
