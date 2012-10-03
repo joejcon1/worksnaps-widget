@@ -51,52 +51,43 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 	private static String SERVER_URL = "http://www.worksnaps.net/api/";
 	public enum TimeSpan {TODAY, YESTERDAY, THIS_WEEK, LAST_WEEK, THIS_MONTH, LAST_MONTH}
 	public TimeSpan span = TimeSpan.TODAY;
+	public String username = "";
+	public String forename = "";
+	public String surname = "";
+	public String email = "";
 
-
+	/*
+	 * Widget methods
+	 */
+	private static String _________WidgetMethods;
 	public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
 		RemoteViews remoteViews;
 		ComponentName watchWidget;
-		int minutes = getMinutesTotal();
-		int hours = minutes / 60;
-		minutes = minutes % 60;
+		int minutes = getMinutesTotal(TimeSpan.THIS_WEEK);
+		
+		
 		
 		
 		remoteViews = new RemoteViews( context.getPackageName(), R.layout.widget_layout );
 		watchWidget = new ComponentName( context, ReportWidgetProvider.class );
-		remoteViews.setTextViewText( R.id.label, hours+ ":"+minutes);
+		
+		remoteViews.setTextViewText( R.id.label, minutesToString(minutes));
 		appWidgetManager.updateAppWidget( watchWidget, remoteViews );
 	}
 	
 	
-	
-	private int getMinutesTotal(){
-		HashMap<String, Object> args = new HashMap<String, Object>();
-		args.put("key", toBase64(key, ""));
-		args.put("urls", formUrls());
-		APICall task = new APICall();
-		ArrayList<String> responses = null;
-		try {
-			responses = task.execute(args).get();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (ExecutionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		int minutes = 0;
-		for(String s:responses){
-			String formatted = formatResponseString(s);
-			XMLHashMap<String, String> dict = (XMLHashMap<String, String>)parseXMLResponse(formatted);
-			minutes += Integer.parseInt(dict.get("duration_in_minutes"));
-		}
-		return minutes;
+	/*
+	 * Data manipulation
+	 */
+	private static String _________DataManipulation;
+	private String minutesToString(int minutes){
+		int hours = minutes	 / 60;
+		minutes = minutes % 60;
+		String minString = (minutes<10)?"0"+minutes:String.valueOf(minutes);
+		return hours+ ":"+minString;
 	}
 	
-	
-	
-	
-	public ArrayList<String> formUrls(){
+	public ArrayList<String> formTimeReportUrls(){
 		ArrayList<String> urls = new ArrayList<String>();
 		ArrayList<String> projects = getProjectCodes();
 		String user_id = getUserID();
@@ -115,12 +106,39 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 
 		return urls;
 	}
-	private ArrayList<String> getProjectCodes(){
+	
+	private String toBase64(String username, String password){
+		String pre = username+":"+password;
+		String ret="Basic "+Base64.encodeToString(pre.getBytes(),Base64.URL_SAFE|Base64.NO_WRAP);
+		return ret;
+		
+	}
+	private String formatResponseString(String result){
+		result = result.replace("<?xml version=\"1.0\"?>", "");
+		
+		//because the api returns 2 xml elements we need to wrap in a single root element
+		result =  "<xml>"+result+"</xml>";
+		return result;
+	}
+	
+	/*
+	 * Get information from the API to form the request urls
+	 */
+	private static String _________ApiFunctions;
+	
+	private int getMinutesTotal(TimeSpan sp){
+		span = sp;
 		HashMap<String, Object> args = new HashMap<String, Object>();
-		args.put("key", toBase64(key, ""));
-		args.put("urls", formUrls());
 		APICall task = new APICall();
 		ArrayList<String> responses = null;
+		int minutes = 0;
+		
+		
+		
+		args.put("key", toBase64(key, ""));
+		args.put("urls", formTimeReportUrls());
+		
+		
 		try {
 			responses = task.execute(args).get();
 		} catch (InterruptedException e) {
@@ -133,15 +151,96 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		for(String s:responses){
 			String formatted = formatResponseString(s);
 			XMLHashMap<String, String> dict = (XMLHashMap<String, String>)parseXMLResponse(formatted);
-			minutes += Integer.parseInt(dict.get("duration_in_minutes"));
+			int len = dict.getItemLength("time_entry");
+			Log.i("PARSER","tasks: count="+len);
+			for(int i=1;i<=len;i++){
+				String minutesString = dict.get("time_entry["+i+"]/duration_in_minutes");
+				try {
+					int num = Integer.parseInt(minutesString);
+					Log.i("MINUTES", "minutes = " + num);
+					minutes += num;
+				} catch (NumberFormatException e) {
+					//move on
+				}
+			}
+			
+			
 		}
+		//minutes = (int)(minutes / 0.83);
+		return minutes;
+	}
+	
+	@SuppressWarnings("unchecked")
+	private ArrayList<String> getProjectCodes(){
+		HashMap<String, Object> args = new HashMap<String, Object>();
+		ArrayList<String> urls = new ArrayList<String>();
+		APICall task = new APICall();
+		ArrayList<String> responses = null;
 		ArrayList<String> rets = new ArrayList<String>();
-		/*
-		 * TODO: make api call to get list of projects
-		 */
-		rets.add("3818"); //3813 is SOA
+		
+		
+		
+		urls.add(SERVER_URL+"projects.xml");
+		args.put("key", toBase64(key, ""));
+		args.put("urls", urls);
+		
+		
+		try {
+			responses = task.execute(args).get();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			e.printStackTrace();
+		}
+		for(String s:responses){
+			String formatted = formatResponseString(s);
+			XMLHashMap<String, String> dict = (XMLHashMap<String, String>)parseXMLResponse(formatted);
+			
+			int len = dict.getItemLength("project");
+			Log.i("PARSER","project List: count="+len);
+			for(int i=1;i<=len;i++){
+				String id = dict.get("project["+i+"]/id");
+				rets.add(id);
+				Log.i("PARSER","project List: id="+id);
+			}
+		}
 		return rets;
 	}
+	
+
+	private String getUserID(){
+		HashMap<String, Object> args = new HashMap<String, Object>();
+		ArrayList<String> urls = new ArrayList<String>();
+		ArrayList<String> responses = null;
+		ArrayList<String> rets = new ArrayList<String>();
+		String user_id = "0";
+		
+		urls.add(SERVER_URL+"me.xml");
+		args.put("key", toBase64(key, ""));
+		args.put("urls", urls);
+		
+		
+		APICall task = new APICall();
+		try {
+			responses = task.execute(args).get();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			e.printStackTrace();
+		}
+		for(String s:responses){
+			String formatted = formatResponseString(s);
+			XMLHashMap<String, String> dict = (XMLHashMap<String, String>)parseXMLResponse(formatted);
+			
+			user_id = dict.get("id");
+			username = dict.get("login");
+			forename = dict.get("first_name");
+			surname = dict.get("last_name");
+		}
+		return user_id;
+	}
+	
+	
 	private String getStartTime(){
 		Calendar c = Calendar.getInstance();
 		long millis = 0;
@@ -151,23 +250,23 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 				break;
 	
 			case YESTERDAY:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE-1, 0, 0, 0);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DATE)-1, 0, 0, 1);
 				break;
 	
 			case THIS_WEEK:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_WEEK)-3, 0, 0, 1);
 				break;
 	
 			case LAST_WEEK:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_WEEK-10), 0, 0, 1);
 				break;
 	
 			case THIS_MONTH:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_WEEK-2), 0, 0, 1);
 				break;
 	
 			case LAST_MONTH:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_WEEK-2), 0, 0, 1);
 				break;
 
 		}
@@ -176,6 +275,9 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		return String.valueOf(millis);
 	}
 	private String getEndTime(){
+		/*
+		 * TODO thismonth and lastmonth for start and end dates
+		 */
 		Calendar c = Calendar.getInstance();
 		long millis = 0;
 		switch(span){
@@ -184,23 +286,23 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 				break;
 	
 			case YESTERDAY:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE-1, 23, 59, 59);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DATE),  5, 59, 59);
 				break;
 	
 			case THIS_WEEK:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 23, 59, 59);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_WEEK)+3,  23, 59, 59);
 				break;
 	
 			case LAST_WEEK:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 23, 59, 59);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_WEEK)+10,  23, 59, 59);
 				break;
 	
 			case THIS_MONTH:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 23, 59, 59);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DATE)-1,  23, 59, 59);
 				break;
 	
 			case LAST_MONTH:
-				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 23, 59, 59);
+				c.set(c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DATE)-1,  23, 59, 59);
 				break;
 
 		}
@@ -208,12 +310,12 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		millis = c.getTimeInMillis()/1000;
 		return String.valueOf(millis);
 	}
-	private String getUserID(){
-		/*
-		 * TODO: get user id from api call for me.xml
-		 */
-		return "2285";
-	}
+	
+	
+	/*
+	 * XML parser code
+	 */
+	private static String _________XML;
 	public static String makeXMLObject(HashMap<String, String> dict){
 		String key = "";
 		String value = "";
@@ -249,19 +351,10 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 
 		return dict;
 	}
-	private String toBase64(String username, String password){
-		String pre = username+":"+password;
-		String ret="Basic "+Base64.encodeToString(pre.getBytes(),Base64.URL_SAFE|Base64.NO_WRAP);
-		return ret;
-		
-	}
-	private String formatResponseString(String result){
-		result = result.replace("<?xml version=\"1.0\"?>", "");
-		
-		//because the api returns 2 xml elements we need to wrap in a single root element
-		result =  "<xml>"+result+"</xml>";
-		return result;
-	}
+	
+	
+
+	private static String _________API_CALLER;
 	static class APICall extends AsyncTask<HashMap<String, Object>, Integer, ArrayList<String>> {
 
 		@Override
