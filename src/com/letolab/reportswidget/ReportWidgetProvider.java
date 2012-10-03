@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
@@ -41,8 +43,9 @@ import android.widget.RemoteViews;
 public class ReportWidgetProvider extends AppWidgetProvider {
 	//private static String key = "aU03TlNpc0d0ZTFXZm1wOElzMU1VS1JVcEdraFNWRHFhendKOG84ODo
 	private static String key = "aU03TlNpc0d0ZTFXZm1wOElzMU1VS1JVcEdraFNWRHFhendKOG84ODo=";
-	private static String SERVER_URL = "http://www.worksnaps.net/api//projects/3818/reports?name=time_summary&from_timestamp=1348617600&user_ids=2285&to_timestamp=1351209600&time_entry_type=online";
-
+	private static String SERVER_URL = "http://www.worksnaps.net/api/";
+	public enum TimeSpan {TODAY, YESTERDAY, THIS_WEEK, LAST_WEEK, THIS_MONTH, LAST_MONTH}
+	public TimeSpan span = TimeSpan.TODAY;
 
 
 	public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -67,9 +70,71 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		remoteViews.setTextViewText( R.id.label, "Time = " + format.format( new Date()));
 		appWidgetManager.updateAppWidget( watchWidget, remoteViews );
 	}
+	public ArrayList<String> formUrls(){
+		ArrayList<String> urls = new ArrayList<String>();
+		ArrayList<String> projects = getProjectCodes();
+		String user_id = getUserID();
+		String start = getStartTime();
+		String end = getEndTime();
 
 
+		for(String projectCode: projects){
+			String ret = SERVER_URL;
 
+			ret = ret + "/projects/"+projectCode+"/";
+			ret = ret + "reports?name=time_summary&from_timestamp="+start;
+			ret = ret + "&user_ids="+user_id;
+			ret = ret + "&to_timestamp="+end+"&time_entry_type=online";
+		}
+
+		return urls;
+	}
+	private ArrayList<String> getProjectCodes(){
+		ArrayList<String> rets = new ArrayList<String>();
+		/*
+		 * TODO: make api call to get list of projects
+		 */
+		rets.add("3813"); //3813 is SOA
+		return rets;
+	}
+	private String getStartTime(){
+		Calendar c = Calendar.getInstance();
+		long millis = 0;
+		switch(span){
+			case TODAY:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				break;
+	
+			case YESTERDAY:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE-1, 0, 0, 0);
+				break;
+	
+			case THIS_WEEK:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				break;
+	
+			case LAST_WEEK:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				break;
+	
+			case THIS_MONTH:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				break;
+	
+			case LAST_MONTH:
+				c.set(Calendar.YEAR, Calendar.MONTH, Calendar.DATE, 0, 0, 0);
+				break;
+
+		}
+		millis = c.getTimeInMillis();
+		return String.valueOf(millis);
+	}
+	private String getEndTime(){
+		return "1351209600";
+	}
+	private String getUserID(){
+		return "2285";
+	}
 	public static String makeXMLObject(HashMap<String, String> dict){
 		String key = "";
 		String value = "";
@@ -111,11 +176,11 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		@Override
 		protected HashMap<String,String> doInBackground(String... content) {
 			String response = "";
-			
-			
+
+
 			HttpClient httpclient = new DefaultHttpClient();
 			HttpGet httpget = null;
-			
+
 			httpget = new HttpGet(SERVER_URL);
 			httpget.addHeader("Authorization", "Basic "+key);
 			try {
