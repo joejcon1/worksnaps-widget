@@ -17,6 +17,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.http.Header;
 import org.apache.http.HeaderElement;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -207,23 +208,8 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 	}
 	private String toBase64(String username, String password){
 		String pre = username+":"+password;
-		byte[] data = null;
-	    try {
-	        data = pre.getBytes("UTF-8");
-	    } catch (UnsupportedEncodingException e1) {
-	    e1.printStackTrace();
-	    }
-	    String base64 = Base64.encodeToString(data, Base64.DEFAULT);
-
-	    // Receiving side
-	    byte[] data1 = Base64.decode(base64, Base64.DEFAULT);
-	    String text1 = null;
-	    try {
-	        text1 = new String(data1, "UTF-8");
-	    } catch (UnsupportedEncodingException e) {
-	        e.printStackTrace();
-	    }
-		return text1;
+		String ret="Basic "+Base64.encodeToString(pre.getBytes(),Base64.URL_SAFE|Base64.NO_WRAP);
+		return ret;
 		
 	}
 	static class APICall extends AsyncTask<HashMap<String, Object>, Integer, String> {
@@ -240,11 +226,16 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 			for(String url:urls){
 				Log.w("APICALL", url);
 				httpget = new HttpGet(url);
-				httpget.addHeader("Authorization", "Basic "+key);
+				httpget.addHeader("Authorization", key);
+//				httpget.addHeader("Host","www.worksnaps.net");
+				Log.i("APICALL", "request");
+				printHeaders(httpget.getAllHeaders());
 				try {
 
 					HttpResponse httpresponse = httpclient.execute(httpget);
 					HttpEntity resEntity = httpresponse.getEntity();
+					Log.i("APICALL", "response");
+					printHeaders(httpresponse.getAllHeaders());
 					responses.add(IOUtils.toString(resEntity.getContent()));
 					Log.e("REPORTS", " "+httpresponse.getStatusLine().getStatusCode());
 				} catch (ClientProtocolException e) {
@@ -264,6 +255,11 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 			//print result
 			Log.w("APICALL","Network Call Complete\n" + result);
 
+		}
+		private void printHeaders(Header[] headers){
+			for(Header h:headers){
+				Log.i("APICALL",h.getName() +" "+h.getValue());
+			}
 		}
 	}
 }
