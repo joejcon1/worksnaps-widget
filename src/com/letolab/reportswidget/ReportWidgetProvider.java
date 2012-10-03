@@ -156,8 +156,13 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 			for(int i=1;i<=len;i++){
 				String minutesString = dict.get("time_entry["+i+"]/duration_in_minutes");
 				try {
+					/*
+					 * TODO: record the hours per task and per project for better visualisation
+					 */
 					int num = Integer.parseInt(minutesString);
-					Log.i("MINUTES", "minutes = " + num);
+					if (num>0) {
+						Log.i("MINUTES", "minutes = " + num);
+					}
 					minutes += num;
 				} catch (NumberFormatException e) {
 					//move on
@@ -231,7 +236,9 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		for(String s:responses){
 			String formatted = formatResponseString(s);
 			XMLHashMap<String, String> dict = (XMLHashMap<String, String>)parseXMLResponse(formatted);
-			
+			/*
+			 * TODO do something with these details
+			 */
 			user_id = dict.get("id");
 			username = dict.get("login");
 			forename = dict.get("first_name");
