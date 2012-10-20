@@ -47,7 +47,7 @@ import android.util.Log;
 import android.widget.RemoteViews;
 
 public class ReportWidgetProvider extends AppWidgetProvider {
-	private static String key = "iM7NSisGte1Wfmp8Is1MUKRUpGkhSVDqazwJ8o88";
+	private static String key = "";
 	private static String SERVER_URL = "http://www.worksnaps.net/api/";
 	public enum TimeSpan {TODAY, YESTERDAY, THIS_WEEK, LAST_WEEK, THIS_MONTH, LAST_MONTH}
 	public TimeSpan span = TimeSpan.TODAY;
