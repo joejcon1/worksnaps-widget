@@ -37,11 +37,14 @@ import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
+import android.app.Service;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.os.AsyncTask;
+import android.os.IBinder;
 import android.util.Base64;
 import android.util.Log;
 import android.widget.RemoteViews;
@@ -50,12 +53,12 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 	private static String key = "";
 	private static String SERVER_URL = "http://www.worksnaps.net/api/";
 	public enum TimeSpan {TODAY, YESTERDAY, THIS_WEEK, LAST_WEEK, THIS_MONTH, LAST_MONTH}
-	public TimeSpan span = TimeSpan.TODAY;
-	public String username = "";
-	public String forename = "";
-	public String surname = "";
-	public String email = "";
-	private HashMap<String, String> projects;
+	public static TimeSpan span = TimeSpan.TODAY;
+	public static String username = "";
+	public static String forename = "";
+	public static String surname = "";
+	public static String email = "";
+	private static HashMap<String, String> projects;
 
 	/*
 	 * Widget methods
@@ -68,26 +71,64 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 
 
 
-
 		remoteViews = new RemoteViews( context.getPackageName(), R.layout.widget_layout );
 		watchWidget = new ComponentName( context, ReportWidgetProvider.class );
+		remoteViews.setTextViewText( R.id.label, "Loading");
 		remoteViews.setTextViewText( R.id.label, minutesToString(minutes));
 		appWidgetManager.updateAppWidget( watchWidget, remoteViews );
 	}
 
+	public static class UpdateService extends Service {
+        @Override
+        public void onStart(Intent intent, int startId) {
+            Log.d("ReportsWidget.UpdateService", "onStart()");
 
+            // Build the widget update for today
+            RemoteViews updateViews = buildUpdate(this);
+            Log.d("ReportsWidget.UpdateService", "update built");
+            
+            // Push update for this widget to the home screen
+            ComponentName thisWidget = new ComponentName(this, ReportWidgetProvider.class);
+            AppWidgetManager manager = AppWidgetManager.getInstance(this);
+            manager.updateAppWidget(thisWidget, updateViews);
+            Log.d("ReportWidget.UpdateService", "widget updated");
+        }
+
+        @Override
+        public IBinder onBind(Intent intent) {
+            return null;
+        }
+        
+        /**
+         * Build a widget update to show the current Wiktionary
+         * "Word of the day." Will block until the online API returns.
+         */
+        public RemoteViews buildUpdate(Context context) {
+        	RemoteViews remoteViews;
+    		ComponentName watchWidget;
+    		int minutes = getMinutesTotal(TimeSpan.TODAY);
+
+
+
+    		remoteViews = new RemoteViews( context.getPackageName(), R.layout.widget_layout );
+    		watchWidget = new ComponentName( context, ReportWidgetProvider.class );
+    		remoteViews.setTextViewText( R.id.label, "Loading");
+    		remoteViews.setTextViewText( R.id.label, minutesToString(minutes));
+            return remoteViews;
+        }
+    }
 	/*
 	 * Data manipulation
 	 */
 	private static String _________DataManipulation;
-	private String minutesToString(int minutes){
+	private static String minutesToString(int minutes){
 		int hours = minutes	 / 60;
 		minutes = minutes % 60;
 		String minString = (minutes<10)?"0"+minutes:String.valueOf(minutes);
 		return hours+ ":"+minString;
 	}
 
-	public ArrayList<String> formTimeReportUrls(){
+	public static ArrayList<String> formTimeReportUrls(){
 		ArrayList<String> urls = new ArrayList<String>();
 		ArrayList<String> projects = getProjectCodes();
 		String user_id = getUserID();
@@ -107,13 +148,13 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		return urls;
 	}
 
-	private String toBase64(String username, String password){
+	private static String toBase64(String username, String password){
 		String pre = username+":"+password;
 		String ret="Basic "+Base64.encodeToString(pre.getBytes(),Base64.URL_SAFE|Base64.NO_WRAP);
 		return ret;
 
 	}
-	private String formatResponseString(String result){
+	private static String formatResponseString(String result){
 		result = result.replace("<?xml version=\"1.0\"?>", "");
 
 		//because the api returns 2 xml elements we need to wrap in a single root element
@@ -126,7 +167,7 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 	 */
 	private static String _________ApiFunctions;
 
-	private int getMinutesTotal(TimeSpan sp){
+	private static int getMinutesTotal(TimeSpan sp){
 		span = sp;
 		HashMap<String, Object> args = new HashMap<String, Object>();
 		APICall task = new APICall();
@@ -182,7 +223,7 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 	}
 
 	@SuppressWarnings("unchecked")
-	private ArrayList<String> getProjectCodes(){
+	private static ArrayList<String> getProjectCodes(){
 		HashMap<String, Object> args = new HashMap<String, Object>();
 		ArrayList<String> urls = new ArrayList<String>();
 		APICall task = new APICall();
@@ -223,7 +264,7 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 	}
 
 
-	private String getUserID(){
+	private static String getUserID(){
 		HashMap<String, Object> args = new HashMap<String, Object>();
 		ArrayList<String> urls = new ArrayList<String>();
 		ArrayList<String> responses = null;
@@ -258,7 +299,7 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 	}
 
 
-	private String getStartTime(){
+	private static String getStartTime(){
 		Calendar c = Calendar.getInstance();
 		long millis = 0;
 		switch(span){
@@ -291,7 +332,7 @@ public class ReportWidgetProvider extends AppWidgetProvider {
 		millis = c.getTimeInMillis()/1000;
 		return String.valueOf(millis);
 	}
-	private String getEndTime(){
+	private static String getEndTime(){
 		/*
 		 * TODO thismonth and lastmonth for start and end dates
 		 */
