@@ -33,6 +33,7 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_metadata" />
         </receiver>
+        <service android:name="com.letolab.reportswidget.MainActivity.$UpdateService"></service>
     </application>
 
 </manifest>
